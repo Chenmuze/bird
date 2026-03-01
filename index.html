@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>3A · FLAPPY BIRD | 全屏·手机适配</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* 基础全屏暗夜氛围 */
+        body {
+            background: #000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Quicksand', 'Cinzel', system-ui, sans-serif;
+            touch-action: manipulation; /* 禁止缩放/滑动 */
+        }
+
+        /* 游戏容器 · 响应式卡片 */
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;  /* 手机上限 */
+            margin: 0 auto;
+            padding: 12px;
+            border-radius: 48px;
+            background: linear-gradient(145deg, #1f3440, #0a1f28);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 0 2px rgba(255,215,100,0.3) inset;
+            transition: all 0.3s;
+        }
+
+        /* 全屏展开样式 (针对手机全屏) */
+        .game-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: none;
+            border-radius: 0;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at 30% 30%, #1e3f4a, #020c12);
+            box-shadow: none;
+            border: none;
+        }
+
+        /* 画布包装器 - 保持比例 */
+        .canvas-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            max-width: 400px;    /* 传统尺寸，手机自适应 */
+            height: auto;
+            aspect-ratio: 2 / 3;
+            border-radius: 32px;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.7), 0 0 0 2px #ffd96699, 0 0 40px #7ec8e0;
+            transition: all 0.3s;
+            cursor: pointer;
+            touch-action: none;   /* 避免触摸滚动 */
+        }
+
+        .game-container.fullscreen canvas {
+            max-width: 90vh;       /* 全屏时最大高度控制 */
+            width: auto;
+            height: auto;
+            max-height: 80vh;
+        }
+
+        /* 控制面板 · 移动友好 flex-wrap */
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px 10px;
+            margin: 16px 5px 8px 5px;
+            padding: 12px 10px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 60px;
+            border: 1px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+        }
+
+        .selector-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,0,0,0.3);
+            padding: 4px 12px;
+            border-radius: 40px;
+            border: 1px solid #ffd966;
+        }
+
+        .selector-group span {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #fff4cb;
+            text-shadow: 0 2px 5px #000;
+            letter-spacing: 0.5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            background: linear-gradient(145deg, #f7d48b, #e3b15c);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 40px;
+            font-size: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #9e6d3a, 0 6px 12px black;
+            transition: 0.06s linear;
+            border: 2px solid #ffdbb5;
+            touch-action: manipulation;
+        }
+
+        .action-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #9e6d3a, 0 6px 12px black;
+        }
+
+        .action-btn.special {
+            background: linear-gradient(145deg, #c7a2f0, #a06bcf);
+            box-shadow: 0 6px 0 #543c7a;
+            width: auto;
+            padding: 0 20px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #f2e7ff;
+            gap: 5px;
+        }
+
+        /* HUD 面板 - 手机自适应 */
+        .hud-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px 12px;
+            margin-top: 12px;
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(15px);
+            border-radius: 60px;
+            border: 1px solid #ffd48a;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #fff2be;
+            text-shadow: 0 2px 0 #8f5f30;
+        }
+
+        .stat span:first-child { font-size: 2rem; } /* 图标 */
+
+        .combo-badge {
+            background: radial-gradient(circle at 30% 20%, #fedb82, #cf9f3a);
+            padding: 6px 18px;
+            border-radius: 50px;
+            font-size: 1.6rem;
+            font-weight: 900;
+            color: #281d05;
+            box-shadow: 0 0 16px #ffe594, 0 4px 0 #886b2c;
+            white-space: nowrap;
+        }
+
+        .fullscreen-toggle {
+            background: rgba(255,255,240,0.2);
+            border: 2px solid #ffdb8e;
+            color: #ffdfa0;
+            font-size: 1.4rem;
+            padding: 6px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            font-weight: 600;
+            white-space: nowrap;
+            touch-action: manipulation;
+        }
+
+        .fullscreen-toggle:active {
+            background: rgba(255, 235, 140, 0.5);
+        }
+
+        #resetBtn {
+            width: auto;
+            padding: 0 20px;
+            font-size: 1.3rem;
+        }
+
+        .aaa-signature {
+            color: #a2b9c4;
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            opacity: 0.7;
+        }
+
+        /* 适配极窄屏幕 (小于380) */
+        @media (max-width: 380px) {
+            .action-btn { width: 38px; height: 38px; font-size: 22px; }
+            .selector-group span { font-size: 1rem; }
+            .stat { font-size: 1.2rem; }
+            .combo-badge { font-size: 1.2rem; padding: 4px 12px; }
+        }
+    </style>
+</head>
+<body>
+<div class="game-container" id="gameContainer">
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+    </div>
+
+    <!-- 3A 控制中心 (移动优化) -->
+    <div class="control-panel">
+        <div class="selector-group">
+            <span>🌦️</span>
+            <div class="action-buttons" id="weatherGroup">
+                <button class="action-btn active" data-weather="sunny">☀️</button>
+                <button class="action-btn" data-weather="rainy">🌧️</button>
+                <button class="action-btn" data-weather="snowy">❄️</button>
+            </div>
+        </div>
+        <div class="selector-group">
+            <span>🐥</span>
+            <div class="action-buttons" id="skinGroup">
+                <button class="action-btn active" data-skin="yellow">🐤</button>
+                <button class="action-btn" data-skin="red">❤️</button>
+                <button class="action-btn" data-skin="blue">💎</button>
+            </div>
+        </div>
+        <div class="selector-group">
+            <span>⚡</span>
+            <div class="action-buttons" id="diffGroup">
+                <button class="action-btn active" data-diff="easy">🍃</button>
+                <button class="action-btn" data-diff="medium">🔥</button>
+                <button class="action-btn" data-diff="hard">💀</button>
+            </div>
+        </div>
+        <button class="action-btn special" id="menuBtn">🏠 菜单</button>
+    </div>
+
+    <!-- 全息HUD + 全屏/重生 (移动适应) -->
+    <div class="hud-panel">
+        <div class="stat"><span>🏆</span> <span id="currentScore">0</span></div>
+        <div class="stat"><span>📋</span> <span id="bestScore">0</span></div>
+        <div class="combo-badge" id="comboDisplay">✖1</div>
+        <button class="fullscreen-toggle" id="fullscreenBtn">⛶ 全屏</button>
+        <button class="action-btn" id="resetBtn" style="width:auto;">↻ 重生</button>
+    </div>
+
+    <div class="aaa-signature">✨ CINEMATIC · TOUCH EDITION ✨</div>
+</div>
+
+<script>
+    (function() {
+        // ----- 画布 & 上下文 -----
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ----- UI 元素 -----
+        const currentScoreSpan = document.getElementById('currentScore');
+        const bestScoreSpan = document.getElementById('bestScore');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const menuBtn = document.getElementById('menuBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const gameContainer = document.getElementById('gameContainer');
+
+        // 按钮组
+        const weatherBtns = document.querySelectorAll('[data-weather]');
+        const skinBtns = document.querySelectorAll('[data-skin]');
+        const diffBtns = document.querySelectorAll('[data-diff]');
+
+        // ----- 核心状态 -----
+        let gameState = 'menu';          // 'menu', 'playing', 'gameover'
+        let bird = {
+            x: 80,
+            y: 280,
+            vy: 0,
+            radius: 15,
+            skin: 'yellow'
+        };
+        let pipes = [];
+        let frame = 0;
+        let score = 0;
+        let bestScore = localStorage.getItem('flappyBest') ? parseInt(localStorage.getItem('flappyBest')) : 0;
+        bestScoreSpan.innerText = bestScore;
+
+        // 天气
+        let weather = 'sunny';
+        let particles = [];
+
+        // 连击系统
+        let combo = 1;
+        let consecutivePasses = 0;
+        let lastPassFrame = -999;
+        const COMBO_TIMEOUT = 60;
+        const MAX_COMBO = 5;
+
+        // 难度
+        let difficulty = 'easy';
+        const diffSettings = {
+            easy: { gap: 145, speed: 2, pipeInterval: 100 },
+            medium: { gap: 120, speed: 2.6, pipeInterval: 90 },
+            hard: { gap: 95, speed: 3.2, pipeInterval: 80 }
+        };
+        let currentGap = diffSettings.easy.gap;
+        let pipeSpeed = diffSettings.easy.speed;
+        let pipeInterval = diffSettings.easy.pipeInterval;
+
+        const GRAVITY = 0.2;
+        const JUMP_FORCE = -5.2;
+        const GROUND_BASE = 550;
+
+        // ----- 粒子系统 (天气) -----
+        const MAX_PARTICLES = 100;
+        function generateParticles(count = 40) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * 400,
+                    y: Math.random() * 600,
+                    speedY: 3 + Math.random() * 5,
+                    speedX: weather === 'rainy' ? 0.8 - Math.random()*1.6 : 0.2 - Math.random()*0.4,
+                    size: weather === 'snowy' ? 2 + Math.random() * 4 : 1.8,
+                });
+            }
+        }
+
+        function updateWeatherParticles() {
+            if (weather === 'sunny') { particles = []; return; }
+            while (particles.length < MAX_PARTICLES) {
+                particles.push({
+                    x: Math.random() * 400,
+                    y: Math.random() * -200,
+                    speedY: weather === 'rainy' ? 7 + Math.random() * 6 : 2.5 + Math.random() * 4,
+                    speedX: weather === 'rainy' ? (Math.random() - 0.5) * 1.2 : (Math.random() - 0.5) * 0.4,
+                    size: weather === 'snowy' ? 3 + Math.random() * 4 : 1.8,
+                });
+            }
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.speedX;
+                p.y += p.speedY;
+                if (p.y > 620 || p.x < -20 || p.x > 420) particles.splice(i, 1);
+            }
+        }
+
+        // ----- 连击逻辑 -----
+        function handleComboOnPass() {
+            const now = frame;
+            if (now - lastPassFrame <= COMBO_TIMEOUT) {
+                consecutivePasses++;
+                if (consecutivePasses >= 3) {
+                    combo = Math.min(MAX_COMBO, 3 + Math.floor((consecutivePasses - 3) / 2));
+                } else combo = 1;
+            } else {
+                consecutivePasses = 1;
+                combo = 1;
+            }
+            lastPassFrame = now;
+            updateComboDisplay();
+        }
+
+        function resetCombo() { combo = 1; consecutivePasses = 0; lastPassFrame = -999; updateComboDisplay(); }
+        function updateComboDisplay() {
+            comboDisplay.innerText = `✖${combo}`;
+            if (combo >= 4) comboDisplay.style.background = 'radial-gradient(circle at 30% 20%, #ff6961, #b1302a)';
+            else comboDisplay.style.background = 'radial-gradient(circle at 30% 20%, #fedb82, #cf9f3a)';
+        }
+
+        // ----- 游戏核心 -----
+        function setDifficulty(diff) {
+            difficulty = diff;
+            const setting = diffSettings[diff];
+            currentGap = setting.gap;
+            pipeSpeed = setting.speed;
+            pipeInterval = setting.pipeInterval;
+        }
+
+        function resetGameData() {
+            bird.y = 280; bird.vy = 0; pipes = []; frame = 0; score = 0;
+            currentScoreSpan.innerText = '0'; resetCombo();
+        }
+
+        function goToMenu() { gameState = 'menu'; resetGameData(); }
+        function startGame() { resetGameData(); gameState = 'playing'; }
+
+        function checkCollision() {
+            if (bird.y - bird.radius <= 0 || bird.y + bird.radius >= GROUND_BASE) return true;
+            for (let p of pipes) {
+                const left = p.x, right = p.x + 50, topPipe = p.topHeight, bottomPipe = p.topHeight + currentGap;
+                if (bird.x + bird.radius > left && bird.x - bird.radius < right) {
+                    if (bird.y - bird.radius < topPipe) return true;
+                    if (bird.y + bird.radius > bottomPipe) return true;
+                }
+            }
+            return false;
+        }
+
+        function updateScoreAndCombo() {
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                let p = pipes[i];
+                if (!p.passed && bird.x > p.x + 50) {
+                    p.passed = true;
+                    score += 1 * combo;
+                    currentScoreSpan.innerText = score;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        localStorage.setItem('flappyBest', bestScore);
+                        bestScoreSpan.innerText = bestScore;
+                    }
+                    handleComboOnPass();
+                }
+            }
+        }
+
+        // ----- 绘制 (与之前3A版一致) -----
+        function drawWeatherEffects() {
+            if (weather === 'sunny') return;
+            ctx.shadowBlur = 18; ctx.shadowColor = '#ffffff90';
+            for (let p of particles) {
+                if (weather === 'rainy') {
+                    ctx.beginPath(); ctx.strokeStyle = '#c0e6ff'; ctx.lineWidth = 2;
+                    ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - 3, p.y + 12); ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.fillStyle = '#ffffffed'; ctx.arc(p.x, p.y, p.size, 0, 2*Math.PI); ctx.fill();
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function drawGameScene(over = false) {
+            let grad = ctx.createLinearGradient(0, 0, 0, 600);
+            if (weather === 'sunny') { grad.addColorStop(0, '#b9d8e6'); grad.addColorStop(0.7, '#f0cf8b'); }
+            else if (weather === 'rainy') { grad.addColorStop(0, '#4e6e82'); grad.addColorStop(0.7, '#3d4f5c'); }
+            else { grad.addColorStop(0, '#bacde0'); grad.addColorStop(0.7, '#95a9bf'); }
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 400, 600);
+
+            ctx.shadowBlur = 45; ctx.shadowColor = '#fffde7';
+            ctx.fillStyle = '#fffcf0c0'; ctx.beginPath(); ctx.arc(70, 70, 45, 0, 2*Math.PI); ctx.arc(120, 100, 40, 0, 2*Math.PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(300, 180, 55, 0, 2*Math.PI); ctx.arc(350, 160, 40, 0, 2*Math.PI); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#61855d'; ctx.shadowBlur = 20; ctx.shadowColor = '#172e17';
+            ctx.beginPath(); ctx.moveTo(0,420); ctx.lineTo(130,260); ctx.lineTo(250,350); ctx.lineTo(330,200); ctx.lineTo(400,280); ctx.lineTo(400,500); ctx.lineTo(0,500); ctx.fill();
+            ctx.fillStyle = '#3d683d'; ctx.fillRect(0,480,400,40);
+            
+            pipes.forEach(p => {
+                ctx.shadowBlur = 25; ctx.shadowColor = '#16412e';
+                ctx.fillStyle = '#2d6b4b'; ctx.fillRect(p.x, 0, 50, p.topHeight);
+                ctx.fillStyle = '#4b8b66'; ctx.fillRect(p.x-6, p.topHeight-30, 62, 30);
+                ctx.fillStyle = '#2d6b4b'; ctx.fillRect(p.x, p.topHeight+currentGap, 50, 600);
+                ctx.fillStyle = '#4b8b66'; ctx.fillRect(p.x-6, p.topHeight+currentGap, 62, 30);
+            });
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#8b6d4b'; ctx.fillRect(0, GROUND_BASE, 400, 60);
+            ctx.fillStyle = '#654321'; ctx.fillRect(0, GROUND_BASE, 400, 10);
+            for (let i=0;i<12;i++) { ctx.fillStyle = '#cc9f6b'; ctx.fillRect(i*38, GROUND_BASE+10, 20, 12); }
+
+            drawWeatherEffects();
+
+            ctx.shadowBlur = 40; ctx.shadowColor = '#fae96b';
+            ctx.beginPath(); ctx.arc(bird.x, bird.y, bird.radius, 0, 2*Math.PI);
+            if (bird.skin === 'yellow') ctx.fillStyle = '#fedb71';
+            else if (bird.skin === 'red') ctx.fillStyle = '#f06449';
+            else ctx.fillStyle = '#5fc1e0';
+            ctx.fill(); ctx.strokeStyle = '#f5cd7a'; ctx.lineWidth = 3; ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.beginPath(); ctx.arc(bird.x+6, bird.y-5, 4, 0, 2*Math.PI); ctx.fillStyle = 'white'; ctx.fill();
+            ctx.beginPath(); ctx.arc(bird.x+8, bird.y-6, 2, 0, 2*Math.PI); ctx.fillStyle = '#08141c'; ctx.fill();
+            ctx.beginPath(); ctx.moveTo(bird.x+15, bird.y-4); ctx.lineTo(bird.x+26, bird.y-8); ctx.lineTo(bird.x+22, bird.y+2); ctx.fillStyle = '#f5a342'; ctx.fill();
+
+            if (over) {
+                ctx.fillStyle = '#000000aa'; ctx.fillRect(0,0,400,600);
+                ctx.font = 'bold 44px "Cinzel", serif'; ctx.fillStyle = '#ffcf9a'; ctx.strokeStyle = '#511'; ctx.lineWidth=6;
+                ctx.textAlign='center'; ctx.strokeText('终结',200,300); ctx.fillText('终结',200,300);
+            }
+        }
+
+        function drawMenuOverlay() {
+            ctx.fillStyle = '#07141caa'; ctx.fillRect(0,0,400,600);
+            ctx.font = '60px "Cinzel", serif'; ctx.fillStyle = '#ffdbb5'; ctx.strokeStyle='#381f00'; ctx.lineWidth=8;
+            ctx.textAlign='center'; ctx.strokeText('FLAPPY',200,180); ctx.fillText('FLAPPY',200,180);
+            ctx.strokeText('BIRD',200,280); ctx.fillText('BIRD',200,280);
+            ctx.font='26px "Segoe UI"'; ctx.fillStyle='#fff9e6'; ctx.fillText('点击 / 空格 翱翔',200,400);
+        }
+
+        function draw() {
+            ctx.clearRect(0,0,400,600);
+            if (gameState === 'menu') { drawGameScene(false); drawMenuOverlay(); }
+            else if (gameState === 'playing') drawGameScene(false);
+            else drawGameScene(true);
+        }
+
+        function update() {
+            if (gameState === 'playing') {
+                bird.vy += GRAVITY; bird.y += bird.vy;
+                if (frame % pipeInterval === 0) {
+                    let topHeight = 70 + Math.random() * 240;
+                    pipes.push({x:400, topHeight, passed:false});
+                }
+                for (let i=pipes.length-1;i>=0;i--) { pipes[i].x -= pipeSpeed; if (pipes[i].x+50<0) pipes.splice(i,1); }
+                if (checkCollision()) { gameState='gameover'; resetCombo(); }
+                updateScoreAndCombo();
+                frame++;
+            }
+            updateWeatherParticles();
+        }
+
+        function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+        gameLoop();
+
+        // ----- 交互 (手机优化：touchstart 替代 click 避免延迟) -----
+        function handleJump(e) {
+            e.preventDefault();  // 重要: 防止页面缩放/滚动
+            if (gameState === 'playing') bird.vy = JUMP_FORCE;
+            else if (gameState === 'menu') startGame();
+            else goToMenu();
+        }
+
+        // 同时支持 click 和 touch (移动端优先)
+        canvas.addEventListener('touchstart', handleJump, { passive: false });
+        canvas.addEventListener('mousedown', handleJump);  // 桌面备用
+        // 禁止上下文菜单
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        window.addEventListener('keydown', e => { if(e.code==='Space') { e.preventDefault(); handleJump(e); } });
+
+        // 天气
+        weatherBtns.forEach(b => b.addEventListener('click', (e)=>{
+            e.preventDefault();
+            weatherBtns.forEach(bb=>bb.classList.remove('active')); b.classList.add('active');
+            weather = b.dataset.weather; particles = [];
+        }));
+        // 皮肤
+        skinBtns.forEach(b => b.addEventListener('click', (e)=>{
+            e.preventDefault();
+            skinBtns.forEach(bb=>bb.classList.remove('active')); b.classList.add('active');
+            bird.skin = b.dataset.skin;
+        }));
+        // 难度
+        diffBtns.forEach(b => b.addEventListener('click', (e)=>{
+            e.preventDefault();
+            diffBtns.forEach(bb=>bb.classList.remove('active')); b.classList.add('active');
+            setDifficulty(b.dataset.diff);
+        }));
+
+        menuBtn.addEventListener('click', (e)=>{ e.preventDefault(); goToMenu(); });
+        resetBtn.addEventListener('click', (e)=>{
+            e.preventDefault();
+            if (gameState==='playing'||gameState==='gameover') { resetGameData(); gameState='playing'; }
+            else resetGameData();
+        });
+
+        // 全屏切换 (兼容移动)
+        fullscreenBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (document.fullscreenElement) {
+                await document.exitFullscreen();
+                gameContainer.classList.remove('fullscreen');
+                fullscreenBtn.innerText = '⛶ 全屏';
+            } else {
+                try {
+                    await document.documentElement.requestFullscreen();
+                    gameContainer.classList.add('fullscreen');
+                    fullscreenBtn.innerText = '✕ 退出';
+                } catch (err) {}
+            }
+        });
+        document.addEventListener('fullscreenchange', ()=>{
+            if (!document.fullscreenElement) {
+                gameContainer.classList.remove('fullscreen');
+                fullscreenBtn.innerText = '⛶ 全屏';
+            }
+        });
+
+        // 初始化
+        setDifficulty('easy'); bird.skin='yellow'; weather='sunny';
+        updateComboDisplay();
+        generateParticles(50);
+    })();
+</script>
+</body>
+</html>
